@@ -158,7 +158,7 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
           },
           limit: {
             type: "number",
-            description: "Number of messages (1-100, default 25)",
+            description: "Number of messages (1-500, default 25)",
           },
         },
         required: ["chat_id"],
@@ -232,12 +232,21 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "fetch_messages": {
-        const limit = Math.max(1, Math.min(100, args.limit ?? 25));
-        const msgs = await discordRequest(
-          "GET",
-          `/channels/${args.chat_id}/messages?limit=${limit}`
-        );
-        const lines = msgs
+        const total = Math.max(1, Math.min(500, args.limit ?? 25));
+        const allMsgs: any[] = [];
+        let before: string | undefined;
+
+        while (allMsgs.length < total) {
+          const batch = Math.min(100, total - allMsgs.length);
+          let url = `/channels/${args.chat_id}/messages?limit=${batch}`;
+          if (before) url += `&before=${before}`;
+          const msgs = await discordRequest("GET", url);
+          if (!msgs.length) break;
+          allMsgs.push(...msgs);
+          before = msgs[msgs.length - 1].id;
+        }
+
+        const lines = allMsgs
           .reverse()
           .map((m: any) => {
             const author =
