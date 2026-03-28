@@ -387,15 +387,13 @@ function connectGateway() {
 }
 
 async function handleMessage(msg: any) {
-  // Ignore our own messages
-  if (msg.author.id === myUserId) return;
-
   // If specific channels are set, only listen to those
   if (ALLOWED_CHANNELS.size > 0 && !ALLOWED_CHANNELS.has(msg.channel_id)) return;
 
   // Otherwise fall back to DMs only
   if (ALLOWED_CHANNELS.size === 0 && msg.guild_id) return;
 
+  const isMe = msg.author.id === myUserId;
   const sender =
     msg.author.global_name || msg.author.username;
   const senderId = msg.author.id;
@@ -426,6 +424,7 @@ async function handleMessage(msg: any) {
         message_id: messageId,
         platform: "discord",
         channel_type: "dm",
+        is_me: isMe ? "true" : "false",
       },
     },
   });
