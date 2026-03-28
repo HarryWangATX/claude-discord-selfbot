@@ -81,40 +81,31 @@ DISCORD_TOKEN=your_token_here
 DISCORD_CHANNEL=channel_id_1,channel_id_2
 ```
 
-- `DISCORD_TOKEN` — Your Discord user token (required)
-- `DISCORD_CHANNEL` — Comma-separated channel IDs to listen to (optional — if empty, listens to all DMs)
+#### `DISCORD_TOKEN` (required)
 
-To get a channel ID, enable **Developer Mode** in Discord (Settings > Advanced), then right-click a channel or DM and select **Copy Channel ID**.
+Your Discord user token. See [Get your Discord user token](#get-your-discord-user-token) above.
 
-### 3. Add to Claude Code MCP config
+#### `DISCORD_CHANNEL` (optional)
 
-Add the channel server to your project's `.mcp.json` (or global `~/.claude.json`):
+Comma-separated list of channel IDs to listen to. Supports DMs, group DMs, and server channels.
 
-```json
-{
-  "mcpServers": {
-    "discord-selfbot": {
-      "command": "bun",
-      "args": ["run", "/FULL/PATH/TO/discord-selfbot-channel/channel.ts"],
-      "env": {
-        "DISCORD_TOKEN": "YOUR_TOKEN_HERE"
-      }
-    }
-  }
-}
-```
+- If set, the bot only responds in those channels.
+- If empty/unset, the bot responds to all DMs.
 
-### 4. Launch Claude Code with the channel
+**To get a channel ID:**
+1. Open Discord Settings > Advanced > enable **Developer Mode**
+2. Right-click a channel, DM, or group DM > **Copy Channel ID**
+
+### 3. Launch
+
+From the project directory:
 
 ```bash
-claude \
-  --channels discord-selfbot \
-  --dangerously-load-development-channels
+cd discord-selfbot-channel
+claude --dangerously-load-development-channels server:discord-selfbot
 ```
 
-The `--dangerously-load-development-channels` flag is required because this is a custom channel not on Anthropic's approved list. It's fine for personal use.
-
-### 5. Test it
+### 4. Test it
 
 Have someone (or use another account) send you a DM on Discord. You should see it appear in your Claude Code session. Claude will process it and reply as you.
 
@@ -127,7 +118,7 @@ Use `tmux` or `screen` to keep the session alive:
 ```bash
 # Create a persistent session
 tmux new-session -d -s discord \
-  "claude --channels discord-selfbot --dangerously-load-development-channels"
+  "cd /path/to/discord-selfbot-channel && claude --dangerously-load-development-channels server:discord-selfbot"
 
 # Attach to check on it
 tmux attach -t discord
@@ -182,8 +173,8 @@ The `chat_context/` directory stores per-channel conversation summaries so Claud
 - Discord may be blocking the intents. This is rare for user accounts but can happen.
 
 **Messages not appearing in Claude Code**
-- Make sure you launched with `--channels discord-selfbot --dangerously-load-development-channels`
-- Check that the MCP server name in `.mcp.json` matches what you pass to `--channels`
+- Make sure you launched with `--dangerously-load-development-channels server:discord-selfbot`
+- Make sure you're running from the project directory
 
 **Conflict with regular Discord client**
 - Discord allows only one active Gateway connection per token. Your normal Discord client may disconnect when the selfbot connects (or vice versa). Consider running this when you're "away" or on a secondary machine.
