@@ -1,0 +1,13 @@
+{
+  "name": "discord-selfbot-channel",
+  "version": "0.1.0",
+  "description": "Discord selfbot channel plugin for Claude Code — listens and responds as your own account",
+  "type": "module",
+  "main": "channel.ts",
+  "scripts": {
+    "start": "bun run channel.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}
