@@ -111,6 +111,35 @@ Have someone (or use another account) send you a DM on Discord. You should see i
 
 ---
 
+## Dashboard
+
+Toggle channels on/off in real-time while the bot is running. In a separate terminal:
+
+```bash
+bun run dashboard.ts
+```
+
+```
+┌──────────────────────────────────────────────────────────┐
+│ Discord Channel Dashboard                                │
+│                                                          │
+│ ▸ ● study group (123456789012345678)           12 msgs    │
+│   ● alice (234567890123456789)                           │
+│   ○ bob, carol (345678901234567890)            3 msgs    │
+│   ● gaming chat (456789012345678901)                     │
+│                                                          │
+│ ↑↓ navigate  ␣ toggle  q quit                           │
+└──────────────────────────────────────────────────────────┘
+```
+
+- **Arrow keys** to navigate
+- **Space** to toggle a channel on/off
+- **q** to quit
+
+Changes take effect immediately — the bot watches the state file and reloads.
+
+---
+
 ## Running 24/7
 
 Use `tmux` or `screen` to keep the session alive:

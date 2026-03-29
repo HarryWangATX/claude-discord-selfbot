@@ -15,6 +15,8 @@ import {
   ListToolsRequestSchema,
   CallToolRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
+import { watch } from "fs";
+import { readState, writeState, STATE_PATH } from "./state.js";
 
 // ── Config ────────────────────────────────────────────────────
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN ?? "";
@@ -42,6 +44,45 @@ let myUserId = "";
 let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 let lastSequence: number | null = null;
 let ws: WebSocket | null = null;
+let enabledChannels = new Set<string>();
+let statsDebounce: ReturnType<typeof setTimeout> | null = null;
+
+function reloadEnabledChannels() {
+  const state = readState();
+  enabledChannels = new Set(
+    Object.entries(state.channels)
+      .filter(([_, ch]) => ch.enabled)
+      .map(([id]) => id)
+  );
+  console.error(`[discord-selfbot] Active channels: ${enabledChannels.size}`);
+}
+
+function updateChannelStats(channelId: string) {
+  if (statsDebounce) clearTimeout(statsDebounce);
+  statsDebounce = setTimeout(() => {
+    const state = readState();
+    if (state.channels[channelId]) {
+      state.channels[channelId].message_count++;
+      state.channels[channelId].last_message = new Date().toISOString();
+      writeState(state);
+    }
+  }, 1000);
+}
+
+async function resolveChannelName(channelId: string): Promise<string> {
+  try {
+    const ch = await discordRequest("GET", `/channels/${channelId}`);
+    // Group DM with a custom name
+    if (ch.name) return ch.name;
+    // DM or unnamed group DM — use recipient names
+    if (ch.recipients?.length) {
+      return ch.recipients.map((r: any) => r.global_name || r.username).join(", ");
+    }
+    return channelId;
+  } catch {
+    return channelId;
+  }
+}
 
 // ── Discord REST helpers ──────────────────────────────────────
 async function discordRequest(
@@ -436,11 +477,9 @@ function connectGateway() {
 }
 
 async function handleMessage(msg: any) {
-  // If specific channels are set, only listen to those
-  if (ALLOWED_CHANNELS.size > 0 && !ALLOWED_CHANNELS.has(msg.channel_id)) return;
-
-  // Otherwise fall back to DMs only
-  if (ALLOWED_CHANNELS.size === 0 && msg.guild_id) return;
+  // Only forward messages from enabled channels
+  if (enabledChannels.size > 0 && !enabledChannels.has(msg.channel_id)) return;
+  if (enabledChannels.size === 0 && msg.guild_id) return;
 
   const isMe = msg.author.id === myUserId;
   const sender =
@@ -485,11 +524,49 @@ async function handleMessage(msg: any) {
       },
     },
   });
+
+  // Update activity stats for the dashboard
+  updateChannelStats(channelId);
 }
 
 // ── Start ─────────────────────────────────────────────────────
 
 async function main() {
+  // Seed state file from ALLOWED_CHANNELS and resolve names
+  const state = readState();
+  for (const id of ALLOWED_CHANNELS) {
+    if (!state.channels[id]) {
+      state.channels[id] = {
+        enabled: true,
+        name: id,
+        last_message: "",
+        message_count: 0,
+      };
+    }
+  }
+  writeState(state);
+  reloadEnabledChannels();
+
+  // Resolve channel names in background
+  for (const id of ALLOWED_CHANNELS) {
+    if (state.channels[id].name === id) {
+      resolveChannelName(id).then((name) => {
+        const s = readState();
+        if (s.channels[id]) {
+          s.channels[id].name = name;
+          writeState(s);
+        }
+      });
+    }
+  }
+
+  // Watch state file for dashboard toggles
+  let watchDebounce: ReturnType<typeof setTimeout> | null = null;
+  watch(STATE_PATH, () => {
+    if (watchDebounce) clearTimeout(watchDebounce);
+    watchDebounce = setTimeout(() => reloadEnabledChannels(), 100);
+  });
+
   // Connect MCP over stdio
   const transport = new StdioServerTransport();
   await mcp.connect(transport);

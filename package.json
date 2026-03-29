@@ -5,7 +5,8 @@
   "type": "module",
   "main": "channel.ts",
   "scripts": {
-    "start": "bun run channel.ts"
+    "start": "bun run channel.ts",
+    "dashboard": "bun run dashboard.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0"
