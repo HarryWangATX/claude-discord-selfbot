@@ -15,7 +15,7 @@ import {
   ListToolsRequestSchema,
   CallToolRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { watch } from "fs";
+import { watchFile } from "fs";
 import { readState, writeState, STATE_PATH } from "./state.js";
 
 // ── Config ────────────────────────────────────────────────────
@@ -566,11 +566,9 @@ async function main() {
     }
   }
 
-  // Watch state file for dashboard toggles
-  let watchDebounce: ReturnType<typeof setTimeout> | null = null;
-  watch(STATE_PATH, () => {
-    if (watchDebounce) clearTimeout(watchDebounce);
-    watchDebounce = setTimeout(() => reloadEnabledChannels(), 100);
+  // Watch state file for dashboard toggles — always reload
+  watchFile(STATE_PATH, { interval: 500 }, () => {
+    reloadEnabledChannels();
   });
 
   // Connect MCP over stdio

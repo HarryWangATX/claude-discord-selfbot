@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { watch } from "fs";
+import { watchFile } from "fs";
 import { readState, writeState, STATE_PATH } from "./state.js";
 import type { ChannelState } from "./state.js";
 
@@ -136,19 +136,15 @@ process.on("SIGINT", cleanup);
 process.on("SIGTERM", cleanup);
 
 // Watch for state changes from channel.ts
-let watchDebounce: ReturnType<typeof setTimeout> | null = null;
-watch(STATE_PATH, () => {
+watchFile(STATE_PATH, { interval: 500 }, () => {
   if (skipNextWatch) {
     skipNextWatch = false;
     return;
   }
-  if (watchDebounce) clearTimeout(watchDebounce);
-  watchDebounce = setTimeout(() => {
-    state = readState();
-    const ids = channelIds();
-    if (cursor >= ids.length) cursor = Math.max(0, ids.length - 1);
-    render();
-  }, 100);
+  state = readState();
+  const ids = channelIds();
+  if (cursor >= ids.length) cursor = Math.max(0, ids.length - 1);
+  render();
 });
 
 enterAlt();
