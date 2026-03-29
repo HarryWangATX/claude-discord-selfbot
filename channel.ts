@@ -328,10 +328,16 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "download_attachment": {
-        const msg = await discordRequest(
+        const msgs = await discordRequest(
           "GET",
-          `/channels/${args.chat_id}/messages/${args.message_id}`
+          `/channels/${args.chat_id}/messages?around=${args.message_id}&limit=1`
         );
+        const msg = msgs.find((m: any) => m.id === args.message_id);
+        if (!msg) {
+          return {
+            content: [{ type: "text", text: "Message not found." }],
+          };
+        }
         const attachments = msg.attachments || [];
         if (!attachments.length) {
           return {
@@ -340,7 +346,7 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
         const results = await Promise.all(
           attachments.map(async (att: any) => {
-            const res = await fetch(att.url, { headers: HEADERS });
+            const res = await fetch(att.url);
             if (att.content_type?.startsWith("image/")) {
               const buf = await res.arrayBuffer();
               const base64 = Buffer.from(buf).toString("base64");
