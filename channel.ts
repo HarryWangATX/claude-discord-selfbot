@@ -165,6 +165,25 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
       },
     },
     {
+      name: "download_attachment",
+      description:
+        "Download attachments from a message. Returns the file contents or saves to disk.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          chat_id: {
+            type: "string",
+            description: "The channel ID",
+          },
+          message_id: {
+            type: "string",
+            description: "The message ID containing the attachment",
+          },
+        },
+        required: ["chat_id", "message_id"],
+      },
+    },
+    {
       name: "edit_message",
       description: "Edit a message previously sent by the user.",
       inputSchema: {
@@ -265,6 +284,36 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
             },
           ],
         };
+      }
+
+      case "download_attachment": {
+        const msg = await discordRequest(
+          "GET",
+          `/channels/${args.chat_id}/messages/${args.message_id}`
+        );
+        const attachments = msg.attachments || [];
+        if (!attachments.length) {
+          return {
+            content: [{ type: "text", text: "No attachments found on this message." }],
+          };
+        }
+        const results = await Promise.all(
+          attachments.map(async (att: any) => {
+            const res = await fetch(att.url, { headers: HEADERS });
+            if (att.content_type?.startsWith("image/")) {
+              const buf = await res.arrayBuffer();
+              const base64 = Buffer.from(buf).toString("base64");
+              return {
+                type: "image" as const,
+                data: base64,
+                mimeType: att.content_type,
+              };
+            }
+            const text = await res.text();
+            return { type: "text" as const, text: `[${att.filename}]\n${text}` };
+          })
+        );
+        return { content: results };
       }
 
       case "edit_message": {
@@ -412,11 +461,19 @@ async function handleMessage(msg: any) {
     ? `\n[Attachments: ${attachments.map((a: any) => `${a.name} (${a.type})`).join(", ")}]`
     : "";
 
+  // Include context of the message being replied to
+  let replyStr = "";
+  if (msg.referenced_message) {
+    const ref = msg.referenced_message;
+    const refAuthor = ref.author?.global_name || ref.author?.username || "Unknown";
+    replyStr = `\n[Replying to ${refAuthor}: ${ref.content || "(no text)"}]`;
+  }
+
   // Push notification to Claude Code
   await mcp.notification({
     method: "notifications/claude/channel",
     params: {
-      content: `${content}${attStr}`,
+      content: `${content}${attStr}${replyStr}`,
       meta: {
         sender,
         sender_id: senderId,
